@@ -1,0 +1,17 @@
+kind: HTTPRoute
+apiVersion: networking.x-k8s.io/v1alpha1
+metadata:
+  name: store-conflict
+  labels:
+    gateway: internal-http
+spec:
+  hostnames:
+    - "store.example.com"
+  rules:
+    - matches:
+        - path:
+            type: Prefix
+            value: /de
+      forwardTo:
+        - serviceName: store-v2
+          port: 8080
