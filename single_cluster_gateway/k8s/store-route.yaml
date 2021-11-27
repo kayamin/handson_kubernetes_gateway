@@ -8,8 +8,25 @@ spec:
   hostnames:
     - "store.example.com"
   rules:
-    - forwardTo:
-        - serviceName: store-v1
+    - matches:
+        - path:
+            type: Prefix
+            value: /de
+      forwardTo:
+        - serviceName: store-german
+          port: 8080
+      filters:
+        - type: RequestMirror # /de へのリクエストを Service store-mirror-target にミラーリングする
+          requestMirror:
+            serviceName: store-mirror-target
+            port: 8080
+    - matches:
+        - path:
+            type: Prefix
+            value: /mirror
+      forwardTo: # Service store-mirror-target への forwardToをなくすと Service store-mirror-target の NEG が作成されない
+                 # そうすると、RequestMirror の設定がエラーになり GCLB のルールは更新されないので注意
+        - serviceName: store-mirror-target
           port: 8080
     - matches:
         - headers:
@@ -19,10 +36,10 @@ spec:
       forwardTo:
         - serviceName: store-v2
           port: 8080
-    - matches:
-        - path:
-            type: Prefix
-            value: /de
-      forwardTo:
-        - serviceName: store-german
+    - forwardTo: # matches未指定のルールは、合致するmatchesが存在しないリクエストに対して適用される
+        - serviceName: store-v1
           port: 8080
+          weight: 90 # このルールが適用されるリクエストの9割を Service store-v1 にルーティングする
+        - serviceName: store-v2
+          port: 8080
+          weight: 10 # このルールが適用されるリクエストの1割を Service store-v1 にルーティングする

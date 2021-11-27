@@ -140,7 +140,7 @@ resource "google_container_node_pool" "primary_nodes" {
 
   node_config {
     preemptible = true
-    machine_type = "e2-medium"
+    machine_type = "e2-standard-2"
 
     metadata = {
       disable-legacy-endpoints = "true"
@@ -152,4 +152,52 @@ resource "google_container_node_pool" "primary_nodes" {
       "https://www.googleapis.com/auth/cloud-platform"
     ]
   }
+  depends_on = [google_container_cluster.main]
+}
+
+# GKEクラスタを GKE Hub のフリートに登録する
+# https://cloud.google.com/kubernetes-engine/docs/how-to/enabling-multi-cluster-gateways#register_with
+# https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/gke_hub_membership
+resource "google_gke_hub_membership" "membership" {
+  for_each = {
+    alpha = {
+      location = "asia-northeast1-a", cluster_primary_id = google_container_cluster.main["alpha"].id
+    }
+    beta = {
+      location = "asia-northeast1-b", cluster_primary_id = google_container_cluster.main["beta"].id
+    }
+    gamma = {
+      location = "asia-northeast1-c", cluster_primary_id = google_container_cluster.main["gamma"].id
+    }
+  }
+
+  membership_id = each.key
+  endpoint {
+    gke_cluster {
+      resource_link = each.value["cluster_primary_id"]
+    }
+  }
+  authority {
+    issuer = "https://container.googleapis.com/v1/${each.value["cluster_primary_id"]}"
+  }
+
+  depends_on = [google_container_cluster.main]
+}
+
+# GKE Hub のフリートでマルチクラスタサービス(MCS)を有効にする
+# https://cloud.google.com/kubernetes-engine/docs/how-to/enabling-multi-cluster-gateways#enable_multi-cluster_services
+# https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/gke_hub_feature
+resource "google_gke_hub_feature" "multicluster-service-discovery" {
+  provider = google-beta
+  name = "multiclusterservicediscovery"
+  project = local.project
+  location = "global"
+
+  depends_on = [google_container_node_pool.primary_nodes]
+}
+
+# MCS に必要な Identity and Access Management（IAM）権限を付与する
+resource "google_project_iam_member" "gke_mcs" {
+  role = "roles/compute.networkViewer"
+  member = "serviceAccount:${local.project}.svc.id.goog[gke-mcs/gke-mcs-importer]"
 }

@@ -1,0 +1,43 @@
+# https://gateway-api.sigs.k8s.io/v1alpha1/references/spec/#networking.x-k8s.io/v1alpha1.GatewaySpec
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  name: prod-gateway
+  namespace: gateway-api-example-ns1
+spec:
+  gatewayClassName: foo-lb
+  listeners:
+    - hostname: example.com # Optionで指定可能, 指定した場合は Route の spec.hostnames に同じ値を含む必要がある
+      protocol: HTTP
+      port: 80
+      routes:
+        kind: HTTPRoute # 特定のKind の Route との binding のみ許可
+        namespaces:
+          from: Selector # All, Same. Selector の場合は特定のlabelがついた namespace の Routeとの binding のみ許可
+            selector:
+              matchLabels:
+                # This label is added automatically as of K8s 1.22
+                # to all namespaces
+                kubernetes.io/metadata.name: gateway-api-example-ns2
+        selector: # 特定のlabelがついた Route との binding のみ許可
+          matchLabels:
+            gateway: internal-http
+---
+# https://gateway-api.sigs.k8s.io/v1alpha1/references/spec/#networking.x-k8s.io/v1alpha1.HTTPRoute
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: example-route
+  namespace: gateway-api-example-ns2 # Gateway で biding の許可対象としているlabelがついた namespace を指定
+spec:
+  gateways:
+    - allow: FromList # All, SameNamespace  FromList とすると gatewayRefs に記載の条件に合致した Gatewayにのみ bind する
+    - gatewayRefs:
+        - name: prod-gateway
+          namespace: gateway-api-example-ns1
+  hostnames:
+    - "example.com" # Gateway で指定している hostname を含まないと bind されない
+  rules:
+    - forwardTo:
+        - serviceName: example-svc
+          port: 80

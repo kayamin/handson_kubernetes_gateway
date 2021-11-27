@@ -1,0 +1,40 @@
+# https://gateway-api.sigs.k8s.io/v1alpha2/references/spec/#gateway.networking.k8s.io/v1alpha2.GatewaySpec
+# https://gateway-api.sigs.k8s.io/v1alpha2/guides/http-routing/
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: prod-gateway
+  namespace: gateway-api-example-ns1
+spec:
+  gatewayClassName: foo-lb
+  listeners:
+    - name: prod-web
+      hostname: example.com # Optionで指定可能, 指定した場合は Route の spec.hostnames に同じ値を含む必要がある
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        kinds:
+          - kind: HTTPRoute # 特定のKind の Route との binding のみ許可
+        namespaces:
+          from: Selector # All, Same. Selector の場合は特定のlabelがついた namespace の Routeとの binding のみ許可
+          selector:
+            matchLabels:
+              # This label is added automatically as of K8s 1.22
+              # to all namespaces
+              kubernetes.io/metadata.name: gateway-api-example-ns2
+---
+# https://gateway-api.sigs.k8s.io/v1alpha2/references/spec/#gateway.networking.k8s.io/v1alpha2.HTTPRouteSpec
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: example-route
+  namespace: gateway-api-example-ns2 # Gateway で biding の許可対象としているlabelがついた namespace を指定
+spec:
+  parentRefs:
+    - name: prod-gateway # 紐づけたい Gateway の spec.metadta.name を指定する必要がある
+  hostnames:
+    - "example.com" # Gateway で指定している hostname を含まないと bind されない
+  rules:
+    - backendRefs:
+        - name: example-svc # 対象とするserviceのspec.metadta.nameを指定
+          port: 80

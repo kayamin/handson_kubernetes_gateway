@@ -35,7 +35,6 @@ resource "google_compute_subnetwork" "gke_subnet" {
     ip_cidr_range = "10.0.2.0/24"
   }
 
-  # 調べる
   private_ip_google_access = true
 }
 
@@ -48,7 +47,6 @@ resource "google_service_account" "gke_node_pool" {
 }
 
 # サービスアカウントに必要最低限の IAMロール（権限）を付与
-# １リソースで１つのロールしか紐付けられないので for_each でまとめて記述するように工夫
 resource "google_project_iam_member" "gke_node_pool" {
   for_each = toset([
     "roles/logging.logWriter",

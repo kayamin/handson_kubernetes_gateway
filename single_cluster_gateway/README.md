@@ -219,7 +219,7 @@ Events:
 
 ❯ curl -o deployment_service.yaml https://raw.githubusercontent.com/GoogleCloudPlatform/gke-networking-recipes/master/gateway/gke-gateway-controller/app/store.yaml
 
-❯ k apply -f deployment_service.yaml
+❯ k apply -f store-deployment-service.yaml
 deployment.apps/store-v1 created
 service/store-v1 created
 deployment.apps/store-v2 created
